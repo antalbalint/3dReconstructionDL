@@ -92,6 +92,7 @@ def generate_vectors(lefts, rights, gts, offset=0):
 
 def generate_training_data(left_imgs, right_imgs, gts, stop):
     x, y = generate_vectors(left_imgs, right_imgs, gts, stop)
+    print x.shape
     x = preprocessing.scale(x)
     n_samples = len(x)
     idx_rnd = np.random.permutation(n_samples)
@@ -104,7 +105,7 @@ def generate_training_data(left_imgs, right_imgs, gts, stop):
     return (x_train, y_train), (x_test, y_test)
 
 
-def train(x_train, y_train, p_batch_size=200, p_nb_epochs=10, p_validation_split=0.05, p_reg=0.01, p_dropout=0.5):
+def train(x_train, y_train, p_batch_size=200, p_nb_epochs=50, p_validation_split=0.05, p_reg=0.01, p_dropout=0.5):
     in_neurons = len(x_train[0])
     out_neurons = len(y_train[0])
     hidden_neurons = 500
@@ -113,6 +114,16 @@ def train(x_train, y_train, p_batch_size=200, p_nb_epochs=10, p_validation_split
     in_layer = Dense(hidden_neurons, input_dim=in_neurons, W_regularizer=l2(p_reg), activation='relu',
                      init='glorot_normal')
     model.add(in_layer)
+    model.add(
+        Dense(hidden_neurons, input_dim=hidden_neurons, W_regularizer=l2(p_reg), activation='relu',
+              init='glorot_normal'))
+    model.add(Dropout(p_dropout))
+    hidden_layer = Dense(hidden_neurons, input_dim=hidden_neurons, W_regularizer=l2(p_reg), activation='relu',
+                         init='glorot_normal')
+    model.add(hidden_layer)
+    drop_layer = Dropout(p_dropout)
+    model.add(drop_layer)
+
     model.add(
         Dense(hidden_neurons, input_dim=hidden_neurons, W_regularizer=l2(p_reg), activation='relu',
               init='glorot_normal'))
@@ -148,4 +159,4 @@ def main(left_dir, right_dir, gt_dir, out_file="predicted.csv"):
 
 if __name__ == "__main__":
     base = 'd:\\dev\\datasets\\heart\\'
-    main(base + 'left\\', base + 'right\\', base + 'gt\\heartDepthMap*')
+    main(base + 'left\\', base + 'right\\', base + 'gt\\disparityMap*')
