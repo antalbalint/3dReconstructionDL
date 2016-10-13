@@ -61,7 +61,7 @@ def load_gt(directory, start=0, stop=np.inf):
 
 
 def get_gt_index(frame_no):
-    return int(round((frame_no / 25.0 + 0.466667) * 30 % 20))
+    return int((round(((frame_no / 25.0 + 0.466667) * 30) % 20)))
 
 
 def visualize(gt, filename):
@@ -80,6 +80,7 @@ def generate_vectors(lefts, rights, gts, offset=0, window_size=12):
         left = rescale_intensity(lefts[idx], in_range='image', out_range='float')
         right = rescale_intensity(rights[idx], in_range='image', out_range='float')
         gt_idx = get_gt_index(idx + offset)
+        # print gt_idx
         gt = gts[gt_idx]
         width, height, channels = left.shape
         for i in xrange(window_size,width-window_size):
@@ -102,8 +103,8 @@ def generate_vectors(lefts, rights, gts, offset=0, window_size=12):
     return np.asarray(data_l, dtype=float), np.asarray(data_r, dtype=float),np.asarray(data_y, dtype=float)
 
 
-def generate_training_data(left_imgs, right_imgs, gts, stop):
-    l, r, y = generate_vectors(left_imgs, right_imgs, gts, stop)
+def generate_training_data(left_imgs, right_imgs, gts):
+    l, r, y = generate_vectors(left_imgs, right_imgs, gts)
 
     # l = preprocessing.scale(l)
     # r = preprocessing.scale(r)
@@ -123,9 +124,9 @@ def generate_training_data(left_imgs, right_imgs, gts, stop):
 
 
 def train(l_train, r_train, y_train, p_batch_size=200, p_nb_epochs=10, p_validation_split=0.05, p_reg=0.01, p_dropout=0.5):
-    l_train = l_train[:1000]
-    r_train = r_train[:1000]
-    y_train = y_train[:1000]
+    l_train = l_train
+    r_train = r_train
+    y_train = y_train
 
     in_neurons = len(l_train[0])
     print l_train[0].shape
@@ -136,6 +137,26 @@ def train(l_train, r_train, y_train, p_batch_size=200, p_nb_epochs=10, p_validat
     input_1 = Input(shape=l_train[0].shape)
     x = Convolution2D(128, 5, 5, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
                       init='glorot_normal')(input_1)
+    # x = MaxPooling2D(pool_size=(2,2))(x)
+    x = Convolution2D(128, 5, 5, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
+                      init='glorot_normal')(x)
+    # x = MaxPooling2D(pool_size=(2, 2))(x)
+    x = Convolution2D(64, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
+                      init='glorot_normal')(x)
+    # x = MaxPooling2D(pool_size=(2, 2))(x)
+    x = Convolution2D(64, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
+                      init='glorot_normal')(x)
+    # x = MaxPooling2D(pool_size=(2, 2))(x)
+    x = Convolution2D(32, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
+                      init='glorot_normal')(x)
+    # x = MaxPooling2D(pool_size=(2, 2))(x)
+    x = Convolution2D(32, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
+                      init='glorot_normal')(x)
+    x = MaxPooling2D(pool_size=(2, 2))(x)
+    x = Convolution2D(128, 5, 5, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
+                      init='glorot_normal')(x)
+
+
     # x = MaxPooling2D(pool_size=(2,2))(x)
     x = Convolution2D(128, 5, 5, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
                       init='glorot_normal')(x)
@@ -171,10 +192,36 @@ def train(l_train, r_train, y_train, p_batch_size=200, p_nb_epochs=10, p_validat
     y = Convolution2D(32, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
                       init='glorot_normal')(y)
     y = MaxPooling2D(pool_size=(2, 2))(y)
+    y = Convolution2D(128, 5, 5, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
+                      init='glorot_normal')(y)
+
+
+    # y = MaxPooling2D(pool_size=(2, 2))(y)
+    y = Convolution2D(128, 5, 5, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
+                      init='glorot_normal')(y)
+    # y = MaxPooling2D(pool_size=(2, 2))(y)
+    y = Convolution2D(64, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
+                      init='glorot_normal')(y)
+    # y = MaxPooling2D(pool_size=(2, 2))(y)
+    y = Convolution2D(64, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
+                      init='glorot_normal')(y)
+    # y = MaxPooling2D(pool_size=(2, 2))(y)
+    y = Convolution2D(32, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
+                      init='glorot_normal')(y)
+    # y = MaxPooling2D(pool_size=(2, 2))(y)
+    y = Convolution2D(32, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
+                      init='glorot_normal')(y)
+    y = MaxPooling2D(pool_size=(2, 2))(y)
     z = merge([x, y], mode='concat')
     z = Flatten()(z)
     z = Dense(1000, activation='relu', W_regularizer=l2(p_reg),
                       init='glorot_normal')(z)
+    z = Dense(1000, activation='relu', W_regularizer=l2(p_reg),
+              init='glorot_normal')(z)
+    z = Dense(1000, activation='relu', W_regularizer=l2(p_reg),
+              init='glorot_normal')(z)
+    z = Dense(1000, activation='relu', W_regularizer=l2(p_reg),
+              init='glorot_normal')(z)
     z = Dense(out_neurons, activation='relu', W_regularizer=l2(p_reg),
                       init='glorot_normal')(z)
 
@@ -228,27 +275,27 @@ def train(l_train, r_train, y_train, p_batch_size=200, p_nb_epochs=10, p_validat
     # model.add(out_layer)
     opt = Adadelta()
     model.compile(loss="mse", optimizer=opt)
+    print model.summary()
 
     model.fit([l_train, r_train], y_train, batch_size=p_batch_size, nb_epoch=p_nb_epochs, validation_split=p_validation_split)
     # model.fit_generator(zip(l_datagen, r_datagen))
-    print model.summary()
-    model.save("cnn_model.h5")
+    # model.save("cnn_model.h5")
     return model
 
 
 def main(left_dir, right_dir, gt_dir, out_file="predicted.csv"):
-    stop = 1
-    left_imgs = load_images(left_dir, stop=stop)
-    right_imgs = load_images(right_dir, stop=stop)
+    stop=1
+    left_imgs = load_images(left_dir,stop=stop)
+    right_imgs = load_images(right_dir,stop=stop)
     gts = load_gt(gt_dir)
-    (l_train, r_train, y_train), (l_test, r_test, y_test) = generate_training_data(left_imgs, right_imgs, gts, stop)
+    (l_train, r_train, y_train), (l_test, r_test, y_test) = generate_training_data(left_imgs, right_imgs, gts)
     model = train(l_train, r_train, y_train)
     predicted = model.predict([l_test, r_test])
     rmse = np.sqrt(((predicted - y_test) ** 2).mean())
     print rmse
-    pd.DataFrame(predicted).to_csv(out_file, index=False)
+    # pd.DataFrame(predicted).to_csv(out_file, index=False)
 
 
 if __name__ == "__main__":
-    base = 'd:\\dev\\datasets\\heart\\'
-    main(base + 'left\\', base + 'right\\', base + 'gt\\disparityMap*')
+    base = '/home/balint/dev/datasets/heart/'
+    main(base + 'left/', base + 'right/', base + 'gt/disparityMap*')
