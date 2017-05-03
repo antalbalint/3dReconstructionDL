@@ -4,7 +4,7 @@ from itertools import chain
 from keras.engine import Input
 from keras.engine import Model
 from keras.engine import merge
-from keras.layers import Dropout, Convolution2D, Convolution3D, Flatten, Activation, MaxPooling2D
+from keras.layers import Dropout, Convolution2D, Convolution3D, Flatten, Activation, MaxPooling2D, BatchNormalization
 from keras.layers.convolutional import MaxPooling3D
 from keras.optimizers import Adadelta
 from keras.preprocessing.image import ImageDataGenerator
@@ -134,49 +134,90 @@ def train(l_train, r_train, y_train, p_batch_size=200, p_nb_epochs=10, p_validat
 
 
     input_1 = Input(shape=l_train[0].shape)
-    x = Convolution2D(128, 5, 5, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
-                      init='glorot_normal')(input_1)
-    # x = MaxPooling2D(pool_size=(2,2))(x)
-    x = Convolution2D(128, 5, 5, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
-                      init='glorot_normal')(x)
+    x = Convolution2D(32, 3, 3, border_mode='same', init='glorot_uniform')(input_1)
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
+    x = Convolution2D(32, 3, 3, border_mode='same', init='glorot_uniform')(x)
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
+    x = MaxPooling2D()(x)
+    x = Convolution2D(64, 3, 3, border_mode='same', init='glorot_uniform')(x)
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
+    x = Convolution2D(64, 3, 3, border_mode='same', init='glorot_uniform')(x)
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
+    x = MaxPooling2D()(x)
+    x = Convolution2D(128, 3, 3, border_mode='same', init='glorot_uniform')(x)
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
+    x = Convolution2D(128, 3, 3, border_mode='same', init='glorot_uniform')(x)
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
+    x = MaxPooling2D()(x)
+    # x = Convolution2D(32, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
+    #                   init='glorot_normal')(x)
+    # # x = MaxPooling2D(pool_size=(2, 2))(x)
+    # x = Convolution2D(64, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
+    #                   init='glorot_normal')(x)
+    # # x = MaxPooling2D(pool_size=(2, 2))(x)
+    # x = Convolution2D(64, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
+    #                   init='glorot_normal')(x)
+    # # x = MaxPooling2D(pool_size=(2, 2))(x)
+    # x = Convolution2D(128, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
+    #                   init='glorot_normal')(x)
+    # # x = MaxPooling2D(pool_size=(2, 2))(x)
+    # x = Convolution2D(128, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
+    #                   init='glorot_normal')(x)
     # x = MaxPooling2D(pool_size=(2, 2))(x)
-    x = Convolution2D(64, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
-                      init='glorot_normal')(x)
-    # x = MaxPooling2D(pool_size=(2, 2))(x)
-    x = Convolution2D(64, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
-                      init='glorot_normal')(x)
-    # x = MaxPooling2D(pool_size=(2, 2))(x)
-    x = Convolution2D(32, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
-                      init='glorot_normal')(x)
-    # x = MaxPooling2D(pool_size=(2, 2))(x)
-    x = Convolution2D(32, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
-                      init='glorot_normal')(x)
-    x = MaxPooling2D(pool_size=(2, 2))(x)
     input_2 = Input(shape=r_train[0].shape)
-    y = Convolution2D(128, 5, 5, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
-                      init='glorot_normal')(input_2)
+    y = Convolution2D(32, 3, 3, border_mode='same', init='glorot_uniform')(input_2)
+    y = BatchNormalization()(y)
+    y = Activation('relu')(y)
+    y = Convolution2D(32, 3, 3, border_mode='same', init='glorot_uniform')(y)
+    y = BatchNormalization()(y)
+    y = Activation('relu')(y)
+    y = MaxPooling2D()(y)
+    y = Convolution2D(64, 3, 3, border_mode='same', init='glorot_uniform')(y)
+    y = BatchNormalization()(y)
+    y = Activation('relu')(y)
+    y = Convolution2D(64, 3, 3, border_mode='same', init='glorot_uniform')(y)
+    y = BatchNormalization()(y)
+    y = Activation('relu')(y)
+    y = MaxPooling2D()(y)
+    y = Convolution2D(128, 3, 3, border_mode='same', init='glorot_uniform')(y)
+    y = BatchNormalization()(y)
+    y = Activation('relu')(y)
+    y = Convolution2D(128, 3, 3, border_mode='same', init='glorot_uniform')(y)
+    y = BatchNormalization()(y)
+    y = Activation('relu')(y)
+    y = MaxPooling2D()(y)
+    # y = Convolution2D(128, 5, 5, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
+    #                   init='glorot_normal')(input_2)
+    # # y = MaxPooling2D(pool_size=(2, 2))(y)
+    # y = Convolution2D(128, 5, 5, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
+    #                   init='glorot_normal')(y)
+    # # y = MaxPooling2D(pool_size=(2, 2))(y)
+    # y = Convolution2D(64, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
+    #                   init='glorot_normal')(y)
+    # # y = MaxPooling2D(pool_size=(2, 2))(y)
+    # y = Convolution2D(64, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
+    #                   init='glorot_normal')(y)
+    # # y = MaxPooling2D(pool_size=(2, 2))(y)
+    # y = Convolution2D(32, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
+    #                   init='glorot_normal')(y)
+    # # y = MaxPooling2D(pool_size=(2, 2))(y)
+    # y = Convolution2D(32, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
+    #                   init='glorot_normal')(y)
     # y = MaxPooling2D(pool_size=(2, 2))(y)
-    y = Convolution2D(128, 5, 5, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
-                      init='glorot_normal')(y)
-    # y = MaxPooling2D(pool_size=(2, 2))(y)
-    y = Convolution2D(64, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
-                      init='glorot_normal')(y)
-    # y = MaxPooling2D(pool_size=(2, 2))(y)
-    y = Convolution2D(64, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
-                      init='glorot_normal')(y)
-    # y = MaxPooling2D(pool_size=(2, 2))(y)
-    y = Convolution2D(32, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
-                      init='glorot_normal')(y)
-    # y = MaxPooling2D(pool_size=(2, 2))(y)
-    y = Convolution2D(32, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
-                      init='glorot_normal')(y)
-    y = MaxPooling2D(pool_size=(2, 2))(y)
     z = merge([x, y], mode='concat')
     z = Flatten()(z)
-    z = Dense(1000, activation='relu', W_regularizer=l2(p_reg),
-                      init='glorot_normal')(z)
-    z = Dense(out_neurons, activation='relu', W_regularizer=l2(p_reg),
-                      init='glorot_normal')(z)
+    z = Dense(4096, init='glorot_uniform')(z)
+    z = BatchNormalization()(z)
+    z = Activation('relu')(z)
+    z = Dense(out_neurons, init='glorot_uniform')(z)
+    # z = BatchNormalization()(z)
+    # z = Activation('linear')(z)
 
     # l_datagen = ImageDataGenerator(zca_whitening=True)
     # r_datagen = ImageDataGenerator(zca_whitening=True)
@@ -247,7 +288,6 @@ def main(left_dir, right_dir, gt_dir, out_file="predicted.csv"):
     rmse = np.sqrt(((predicted - y_test) ** 2).mean())
     print rmse
     pd.DataFrame(predicted).to_csv(out_file, index=False)
-
 
 if __name__ == "__main__":
     base = 'd:\\dev\\datasets\\heart\\'
