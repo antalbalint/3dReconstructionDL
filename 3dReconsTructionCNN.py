@@ -3,8 +3,8 @@ from itertools import chain
 
 from keras.engine import Input
 from keras.engine import Model
-from keras.engine import merge
-from keras.layers import Dropout, Convolution2D, Convolution3D, Flatten, Activation, MaxPooling2D, BatchNormalization
+from keras.layers import Dropout, Convolution2D, Convolution3D, Flatten, Activation, MaxPooling2D, BatchNormalization, \
+    Concatenate
 from keras.layers.convolutional import MaxPooling3D
 from keras.optimizers import Adadelta
 from keras.preprocessing.image import ImageDataGenerator
@@ -101,6 +101,38 @@ def generate_vectors(lefts, rights, gts, offset=0, window_size=12):
                 data_y.append(y)
     return np.asarray(data_l, dtype=float), np.asarray(data_r, dtype=float),np.asarray(data_y, dtype=float)
 
+def generate_vector_batches(lefts, rights, gts, offset=0, window_size=12, batch_size=48):
+    data_r = np.empty((batch_size, 2*window_size, 2*window_size))
+    data_l = np.empty((batch_size, 2*window_size, 2*window_size))
+    data_y = np.empty((batch_size, 3))
+    count = 0
+    for idx in xrange(len(lefts)):
+        left = rescale_intensity(io.imread(lefts[idx]), in_range='image', out_range='float')
+        right = rescale_intensity(io.imread(rights[idx]), in_range='image', out_range='float')
+        gt_idx = get_gt_index(idx + offset)
+        gt = gts[gt_idx]
+        width, height, channels = left.shape
+        for i in xrange(window_size, width - window_size):
+            for j in xrange(window_size, height - window_size):
+                y = gt[i + width * j]
+                if y == [0, 0, 0]:
+                    continue
+                l = left[i - window_size:i + window_size, j - window_size:j + window_size]
+                r = right[i - window_size:i + window_size, j - window_size:j + window_size]
+
+                # x = (l)
+
+                # x = []
+                # for p, q in zip(l, r):
+                #     x.append(p)
+                #     x.append(q)
+                data_l[count,:] = l
+                data_r[count,:] = r
+                data_y[count,:] = y
+                count += 1
+                if (count == batch_size):
+                    yield data_l, data_r, data_y
+                    count = 0
 
 def generate_training_data(left_imgs, right_imgs, gts):
     l, r, y = generate_vectors(left_imgs, right_imgs, gts)
@@ -122,18 +154,18 @@ def generate_training_data(left_imgs, right_imgs, gts):
     return (l_train,r_train, y_train), (l_test, r_test, y_test)
 
 
-def train(l_train, r_train, y_train, p_batch_size=200, p_nb_epochs=10, p_validation_split=0.05, p_reg=0.01, p_dropout=0.5):
-    l_train = l_train
-    r_train = r_train
-    y_train = y_train
+def train(in_shape, out_shape, p_batch_size=200, p_nb_epochs=10, p_validation_split=0.05, p_reg=0.01, p_dropout=0.5):
+    # l_train = l_train[:1000]
+    # r_train = r_train[:1000]
+    # y_train = y_train[:1000]
+    #
+    # in_neurons = len(l_train[0])
+    # print l_train[0].shape
+    # out_neurons = len(y_train[0])
+    # hidden_neurons = 500
 
-    in_neurons = len(l_train[0])
-    print l_train[0].shape
-    out_neurons = len(y_train[0])
-    hidden_neurons = 500
 
-
-    input_1 = Input(shape=l_train[0].shape)
+    input_1 = Input(shape=in_shape)
     x = Convolution2D(32, 3, 3, border_mode='same', init='glorot_uniform')(input_1)
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
@@ -210,12 +242,12 @@ def train(l_train, r_train, y_train, p_batch_size=200, p_nb_epochs=10, p_validat
     # y = Convolution2D(32, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
     #                   init='glorot_normal')(y)
     # y = MaxPooling2D(pool_size=(2, 2))(y)
-    z = merge([x, y], mode='concat')
+    z = Concatenate()([x,y])
     z = Flatten()(z)
     z = Dense(4096, init='glorot_uniform')(z)
-    z = BatchNormalization()(z)
-    z = Activation('relu')(z)
-    z = Dense(out_neurons, init='glorot_uniform')(z)
+    # z = BatchNormalization()(z)
+    # z = Activation('relu')(z)
+    z = Dense(out_shape, init='glorot_uniform')(z)
     # z = BatchNormalization()(z)
     # z = Activation('linear')(z)
 
@@ -271,26 +303,29 @@ def train(l_train, r_train, y_train, p_batch_size=200, p_nb_epochs=10, p_validat
     model.compile(loss="mse", optimizer=opt)
     print model.summary()
 
-    model.fit([l_train, r_train], y_train, batch_size=p_batch_size, nb_epoch=p_nb_epochs, validation_split=p_validation_split)
-    # model.fit_generator(zip(l_datagen, r_datagen))
-    print model.summary()
-    model.save("cnn_model.h5")
+    # model.fit([l_train, r_train], y_train, batch_size=p_batch_size, nb_epoch=p_nb_epochs, validation_split=p_validation_split)
+
     return model
 
 
 def main(left_dir, right_dir, gt_dir, out_file="predicted.csv"):
     stop = 1
-    left_imgs = load_images(left_dir, stop=stop)
-    right_imgs = load_images(right_dir, stop=stop)
+    # left_imgs = load_images(left_dir, stop=stop)
+    # right_imgs = load_images(right_dir, stop=stop)
     gts = load_gt(gt_dir)
-    (l_train, r_train, y_train), (l_test, r_test, y_test) = generate_training_data(left_imgs, right_imgs, gts, stop)
-    model = train(l_train, r_train, y_train)
-    predicted = model.predict([l_test, r_test])
-    rmse = np.sqrt(((predicted - y_test) ** 2).mean())
-    print rmse
-    pd.DataFrame(predicted).to_csv(out_file, index=False)
+    # (l_train, r_train, y_train), (l_test, r_test, y_test) = generate_training_data(left_imgs, right_imgs, gts)
+    model = train((24,24), (3))
+    model.fit_generator(generator=generate_vector_batches(left_dir, right_dir, gts, batch_size=32))
+    # model.fit_generator(zip(l_datagen, r_datagen))
+    print model.summary()
+    model.save("cnn_model.h5")
+    # predicted = model.predict([l_test, r_test])
+    # rmse = np.sqrt(((predicted - y_test) ** 2).mean())
+    # print rmse
+    # pd.DataFrame(predicted).to_csv(out_file, index=False)
 
 
 if __name__ == "__main__":
-    base = '/home/balint/dev/datasets/heart/'
+    # base = '/home/balint/dev/datasets/heart/'
+    base ='d:\dev\datasets\heart\\'
     main(base + 'left/', base + 'right/', base + 'gt/disparityMap*')
