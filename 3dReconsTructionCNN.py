@@ -3,10 +3,10 @@ from itertools import chain
 
 from keras.engine import Input
 from keras.engine import Model
-from keras.engine import merge
-from keras.layers import Dropout, Convolution2D, Convolution3D, Flatten, Activation, MaxPooling2D, BatchNormalization
+from keras.layers import Dropout, Convolution2D, Convolution3D, Flatten, Activation, MaxPooling2D, BatchNormalization, \
+    Concatenate
 from keras.layers.convolutional import MaxPooling3D
-from keras.optimizers import Adadelta
+from keras.optimizers import Adadelta, Adamax
 from keras.preprocessing.image import ImageDataGenerator
 from keras.regularizers import l2
 from skimage import io
@@ -61,7 +61,15 @@ def load_gt(directory, start=0, stop=np.inf):
 
 
 def get_gt_index(frame_no):
-    return int((round(((frame_no / 25.0 + 0.466667) * 30) % 20)))
+    # round(
+    #   mod(
+    #       (FrameNo/25 + 0.466667)*30
+    #       ,20
+    #   )
+    # )
+    # print frame_no, frame_no / 25.0 + 0.466667, (frame_no / 25.0 + 0.466667) * 30, ((frame_no / 25.0 + 0.466667) * 30) % 20, round(((frame_no / 25.0 + 0.466667) * 30) % 20), int(((frame_no / 25.0 + 0.466667) * 30) % 20)
+
+    return int((((frame_no / 25.0 + 0.466667) * 30) % 20))
 
 
 def visualize(gt, filename):
@@ -80,6 +88,7 @@ def generate_vectors(lefts, rights, gts, offset=0, window_size=12):
         left = rescale_intensity(lefts[idx], in_range='image', out_range='float')
         right = rescale_intensity(rights[idx], in_range='image', out_range='float')
         gt_idx = get_gt_index(idx + offset)
+        # print gt_idx
         gt = gts[gt_idx]
         width, height, channels = left.shape
         for i in xrange(window_size,width-window_size):
@@ -210,7 +219,7 @@ def train(l_train, r_train, y_train, p_batch_size=200, p_nb_epochs=10, p_validat
     # y = Convolution2D(32, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
     #                   init='glorot_normal')(y)
     # y = MaxPooling2D(pool_size=(2, 2))(y)
-    z = merge([x, y], mode='concat')
+    z = Concatenate()([x, y])
     z = Flatten()(z)
     z = Dense(4096, init='glorot_uniform')(z)
     z = BatchNormalization()(z)
@@ -267,7 +276,7 @@ def train(l_train, r_train, y_train, p_batch_size=200, p_nb_epochs=10, p_validat
     # out_layer = Dense(out_neurons, activation='sigmoid', W_regularizer=l2(p_reg),
     #                   init='glorot_normal')
     # model.add(out_layer)
-    opt = Adadelta()
+    opt = Adamax()
     model.compile(loss="mse", optimizer=opt)
     print model.summary()
 
@@ -280,11 +289,12 @@ def train(l_train, r_train, y_train, p_batch_size=200, p_nb_epochs=10, p_validat
 
 def main(left_dir, right_dir, gt_dir, out_file="predicted.csv"):
     stop = 1
-    left_imgs = load_images(left_dir, stop=stop)
-    right_imgs = load_images(right_dir, stop=stop)
+    left_imgs = load_images(left_dir)
+    right_imgs = load_images(right_dir)
     gts = load_gt(gt_dir)
-    (l_train, r_train, y_train), (l_test, r_test, y_test) = generate_training_data(left_imgs, right_imgs, gts, stop)
-    model = train(l_train, r_train, y_train)
+    (l_train, r_train, y_train), (l_test, r_test, y_test) = generate_training_data(left_imgs, right_imgs, gts)
+    model = train(l_train, r_train, y_train, p_nb_epochs=10)
+    print model.evaluate([l_test, r_test])
     predicted = model.predict([l_test, r_test])
     rmse = np.sqrt(((predicted - y_test) ** 2).mean())
     print rmse
