@@ -4,7 +4,7 @@ from itertools import chain
 from keras.engine import Input
 from keras.engine import Model
 from keras.layers import Dropout, Convolution2D, Convolution3D, Flatten, Activation, MaxPooling2D, BatchNormalization, \
-    Concatenate
+    Concatenate, Average
 from keras.layers.convolutional import MaxPooling3D
 from keras.optimizers import Adadelta, Adamax
 from keras.preprocessing.image import ImageDataGenerator
@@ -44,7 +44,7 @@ def show_disparity_map(map_file, width, height, im_name='distance_map.png'):
 
 
 def load_gt(directory, start=0, stop=np.inf):
-    filenames = glob.glob(directory)
+    filenames = sorted(glob.glob(directory))
     gts = []
     for i in xrange(start, min(len(filenames), stop)):
         name = filenames[i]
@@ -110,13 +110,17 @@ def generate_vectors(lefts, rights, gts, offset=0, window_size=12):
     return np.asarray(data_l, dtype=float), np.asarray(data_r, dtype=float),np.asarray(data_y, dtype=float)
 
 def generate_vector_batches(lefts, rights, gts, offset=0, window_size=12, batch_size=48):
-    data_r = np.empty((batch_size, 2*window_size, 2*window_size))
-    data_l = np.empty((batch_size, 2*window_size, 2*window_size))
+    data_r = np.empty((batch_size, 2*window_size, 2*window_size, 3))
+    print data_r.shape
+    data_l = np.empty((batch_size, 2*window_size, 2*window_size, 3))
     data_y = np.empty((batch_size, 3))
     count = 0
-    for idx in xrange(len(lefts)):
-        left = rescale_intensity(io.imread(lefts[idx]), in_range='image', out_range='float')
-        right = rescale_intensity(io.imread(rights[idx]), in_range='image', out_range='float')
+    left_imgs = sorted(glob.glob(lefts+'*.png'))
+    right_imgs = sorted(glob.glob(rights+'*.png'))
+    for idx in xrange(len(left_imgs)):
+        print left_imgs[idx]
+        left = rescale_intensity(io.imread(left_imgs[idx]), in_range='image', out_range='float')
+        right = rescale_intensity(io.imread(right_imgs[idx]), in_range='image', out_range='float')
         gt_idx = get_gt_index(idx + offset)
         gt = gts[gt_idx]
         width, height, channels = left.shape
@@ -139,7 +143,7 @@ def generate_vector_batches(lefts, rights, gts, offset=0, window_size=12, batch_
                 data_y[count,:] = y
                 count += 1
                 if (count == batch_size):
-                    yield data_l, data_r, data_y
+                    yield [data_l, data_r], data_y
                     count = 0
 
 def generate_training_data(left_imgs, right_imgs, gts):
@@ -162,15 +166,15 @@ def generate_training_data(left_imgs, right_imgs, gts):
     return (l_train,r_train, y_train), (l_test, r_test, y_test)
 
 
-def train(l_train, r_train, y_train, p_batch_size=200, p_nb_epochs=10, p_validation_split=0.05, p_reg=0.01, p_dropout=0.5):
-    l_train = l_train
-    r_train = r_train
-    y_train = y_train
-
-    in_neurons = len(l_train[0])
-    print l_train[0].shape
-    out_neurons = len(y_train[0])
-    hidden_neurons = 500
+def train(in_shape, out_shape, p_batch_size=200, p_nb_epochs=10, p_validation_split=0.05, p_reg=0.01, p_dropout=0.5):
+    # l_train = l_train
+    # r_train = r_train
+    # y_train = y_train
+    #
+    # in_neurons = len(l_train[0])
+    # print l_train[0].shape
+    # out_neurons = len(y_train[0])
+    # hidden_neurons = 500
 
     input_1 = Input(shape=in_shape)
     x = Convolution2D(32, 3, 3, border_mode='same', init='glorot_uniform')(input_1)
@@ -209,7 +213,7 @@ def train(l_train, r_train, y_train, p_batch_size=200, p_nb_epochs=10, p_validat
     # x = Convolution2D(128, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
     #                   init='glorot_normal')(x)
     # x = MaxPooling2D(pool_size=(2, 2))(x)
-    input_2 = Input(shape=r_train[0].shape)
+    input_2 = Input(shape=in_shape)
     y = Convolution2D(32, 3, 3, border_mode='same', init='glorot_uniform')(input_2)
     y = BatchNormalization()(y)
     y = Activation('relu')(y)
@@ -249,11 +253,17 @@ def train(l_train, r_train, y_train, p_batch_size=200, p_nb_epochs=10, p_validat
     # y = Convolution2D(32, 3, 3, border_mode='same', activation='relu', W_regularizer=l2(p_reg),
     #                   init='glorot_normal')(y)
     # y = MaxPooling2D(pool_size=(2, 2))(y)
-    z = Concatenate()([x,y])
+    z = Average()([x,y])
     z = Flatten()(z)
     z = Dense(4096, init='glorot_uniform')(z)
-    # z = BatchNormalization()(z)
-    # z = Activation('relu')(z)
+    z = BatchNormalization()(z)
+    z = Activation('relu')(z)
+    z = Dense(2048, init='glorot_uniform')(z)
+    z = BatchNormalization()(z)
+    z = Activation('relu')(z)
+    z = Dense(1024, init='glorot_uniform')(z)
+    z = BatchNormalization()(z)
+    z = Activation('relu')(z)
     z = Dense(out_shape, init='glorot_uniform')(z)
     # z = BatchNormalization()(z)
     # z = Activation('linear')(z)
@@ -321,8 +331,9 @@ def main(left_dir, right_dir, gt_dir, out_file="predicted.csv"):
     # right_imgs = load_images(right_dir, stop=stop)
     gts = load_gt(gt_dir)
     # (l_train, r_train, y_train), (l_test, r_test, y_test) = generate_training_data(left_imgs, right_imgs, gts)
-    model = train((24,24), (3))
-    model.fit_generator(generator=generate_vector_batches(left_dir, right_dir, gts, batch_size=32))
+    model = train((24,24, 3), (3))
+    # 128 batch 693 batch / image, 2000 image for training
+    model.fit_generator(generator=generate_vector_batches(left_dir, right_dir, gts, batch_size=128), steps_per_epoch=290000, epochs=1)
     # model.fit_generator(zip(l_datagen, r_datagen))
     print model.summary()
     model.save("cnn_model.h5")
